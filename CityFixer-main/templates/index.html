@@ -1,0 +1,1594 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>The City Fixer — AI Road Infrastructure & Maintenance Platform</title>
+
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- Leaflet CSS & JS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <!-- Leaflet.heat for Damage Density Heatmap -->
+    <script src="https://unpkg.com/leaflet.heat@0.2.0/dist/leaflet-heat.js"></script>
+
+    <!-- FontAwesome 6 Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <!-- Professional Typography: Inter, Space Grotesk, JetBrains Mono -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        display: ['Space Grotesk', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'monospace'],
+                    },
+                    colors: {
+                        brand: {
+                            50: '#ecfdf5',
+                            100: '#d1fae5',
+                            200: '#a7f3d0',
+                            300: '#6ee7b7',
+                            400: '#34d399',
+                            500: '#10b981',
+                            600: '#059669',
+                            700: '#047857',
+                            800: '#065f46',
+                            900: '#064e3b',
+                        },
+                        sage: {
+                            50: '#f4f8f5',
+                            100: '#e8f1ea',
+                            200: '#d3e4d7',
+                            300: '#b4cfbc',
+                            400: '#8eb399',
+                            500: '#6a9777',
+                            600: '#527a5e',
+                            700: '#41614b',
+                            800: '#364e3d',
+                            900: '#1e2b22',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        :root {
+            --bg-page: #f2f7f4;
+            --bg-card: #ffffff;
+            --bg-card-alt: #f7faf8;
+            --border-card: #d9e7de;
+            --border-subtle: #e6efe8;
+            --text-heading: #13241b;
+            --text-body: #3c5245;
+            --text-muted: #6e8477;
+            --brand-primary: #059669;
+            --brand-primary-hover: #047857;
+            --brand-tint: #ecfdf5;
+            --tier1-color: #ef4444;
+            --tier2-color: #f59e0b;
+            --tier3-color: #0284c7;
+            --shadow-card: 0 4px 18px -2px rgba(5, 150, 105, 0.06), 0 2px 6px -1px rgba(0, 0, 0, 0.04);
+        }
+
+        .dark {
+            --bg-page: #101513;
+            --bg-card: #171f1a;
+            --bg-card-alt: #1c2621;
+            --border-card: #27382e;
+            --border-subtle: #1f2d24;
+            --text-heading: #f0f7f2;
+            --text-body: #c4d7cc;
+            --text-muted: #829a8c;
+            --brand-primary: #10b981;
+            --brand-primary-hover: #34d399;
+            --brand-tint: rgba(16, 185, 129, 0.12);
+            --shadow-card: 0 6px 20px -2px rgba(0, 0, 0, 0.4);
+        }
+
+        body {
+            background-color: var(--bg-page);
+            color: var(--text-body);
+            font-family: 'Inter', sans-serif;
+            transition: background-color 0.25s ease, color 0.25s ease;
+        }
+
+        .cf-card {
+            background-color: var(--bg-card);
+            border: 1px solid var(--border-card);
+            border-radius: 16px;
+            box-shadow: var(--shadow-card);
+            transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+        }
+
+        .cf-card:hover {
+            border-color: rgba(5, 150, 105, 0.35);
+        }
+
+        .cf-btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 7px;
+            font-weight: 600;
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .cf-btn-primary {
+            background: linear-gradient(135deg, #059669 0%, #047857 100%);
+            color: #ffffff;
+            box-shadow: 0 2px 8px -1px rgba(5, 150, 105, 0.35);
+        }
+
+        .cf-btn-primary:hover {
+            background: linear-gradient(135deg, #047857 0%, #065f46 100%);
+            box-shadow: 0 4px 14px -1px rgba(5, 150, 105, 0.45);
+            transform: translateY(-1px);
+        }
+
+        .cf-btn-secondary {
+            background: var(--bg-card);
+            color: var(--text-body);
+            border: 1px solid var(--border-card);
+        }
+
+        .cf-btn-secondary:hover {
+            background: var(--bg-card-alt);
+            color: var(--text-heading);
+            border-color: var(--brand-primary);
+        }
+
+        /* Custom scrollbar */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: var(--bg-card-alt);
+        }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(110, 132, 119, 0.35);
+            border-radius: 3px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(5, 150, 105, 0.55);
+        }
+
+        /* Leaflet custom popup styling */
+        .leaflet-popup-content-wrapper {
+            background-color: var(--bg-card) !important;
+            color: var(--text-heading) !important;
+            border: 1px solid var(--border-card) !important;
+            border-radius: 14px !important;
+            box-shadow: 0 12px 30px -4px rgba(0, 0, 0, 0.18) !important;
+            padding: 2px !important;
+        }
+        .leaflet-popup-tip {
+            background-color: var(--bg-card) !important;
+            border: 1px solid var(--border-card) !important;
+        }
+        .leaflet-container {
+            font-family: 'Inter', sans-serif !important;
+            background: #d8e5dc !important;
+        }
+        .dark-tiles .leaflet-tile-pane {
+            filter: brightness(0.65) invert(1) contrast(2.4) hue-rotate(200deg) saturate(0.35) brightness(0.75);
+        }
+
+        /* Marker Pin Pulse */
+        @keyframes pinPulse {
+            0% { transform: scale(0.95); opacity: 0.8; }
+            50% { transform: scale(1.3); opacity: 0; }
+            100% { transform: scale(0.95); opacity: 0; }
+        }
+        .pulse-ring {
+            animation: pinPulse 2s infinite ease-out;
+        }
+
+        /* Heatmap Matrix cells */
+        .heat-cell {
+            transition: transform 0.15s ease, filter 0.15s ease;
+        }
+        .heat-cell:hover {
+            transform: scale(1.15);
+            z-index: 10;
+            filter: brightness(1.1);
+        }
+    </style>
+</head>
+<body class="h-full min-h-screen flex flex-col antialiased">
+
+    <!-- ================= TOP HEADER NAVIGATION ================= -->
+    <header class="sticky top-0 z-40 bg-[var(--bg-card)]/90 backdrop-blur-md border-b border-[var(--border-card)] px-4 lg:px-8 py-3 transition-colors duration-200">
+        <div class="max-w-[1600px] mx-auto flex items-center justify-between gap-4 flex-wrap">
+            
+            <!-- Logo & Title -->
+            <div class="flex items-center space-x-3.5">
+                <div class="h-10 w-10 rounded-xl bg-gradient-to-br from-emerald-500 to-emerald-700 text-white flex items-center justify-center shadow-md shadow-emerald-500/25">
+                    <i class="fa-solid fa-road text-lg"></i>
+                </div>
+                <div>
+                    <div class="flex items-center gap-2">
+                        <span class="font-display font-bold text-lg text-[var(--text-heading)] tracking-tight">The City Fixer</span>
+                        <span class="font-mono text-[11px] font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-950/80 dark:text-emerald-300 px-2 py-0.5 rounded-full border border-emerald-300/60 dark:border-emerald-700/60">v2.0</span>
+                    </div>
+                    <p class="text-xs text-[var(--text-muted)] font-medium">AI-Powered Road Damage Surveillance & Infrastructure Intelligence</p>
+                </div>
+            </div>
+
+            <!-- Navigation Mode Switcher -->
+            <div class="flex items-center bg-[var(--bg-card-alt)] p-1 rounded-xl border border-[var(--border-card)]">
+                <button onclick="switchTab('dashboard')" id="tab-btn-dashboard" class="cf-btn px-4 py-2 rounded-lg text-xs font-semibold bg-emerald-600 text-white shadow-sm shadow-emerald-600/30">
+                    <i class="fa-solid fa-chart-pie mr-1"></i> Operations
+                </button>
+                <button onclick="switchTab('stretch')" id="tab-btn-stretch" class="cf-btn px-4 py-2 rounded-lg text-xs font-medium text-[var(--text-muted)] hover:text-[var(--text-heading)]">
+                    <i class="fa-solid fa-chart-line mr-1"></i> Road Health & Analytics
+                </button>
+            </div>
+
+            <!-- Header Action Controls -->
+            <div class="flex items-center space-x-2.5 flex-wrap">
+                <!-- System Status Live Badge -->
+                <div class="hidden sm:flex items-center space-x-2 bg-emerald-500/10 border border-emerald-500/25 px-3 py-1.5 rounded-full font-mono text-[11px] text-emerald-700 dark:text-emerald-400">
+                    <span class="relative flex h-2 w-2">
+                        <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-500 opacity-75"></span>
+                        <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-600"></span>
+                    </span>
+                    <span class="font-semibold">YOLOv8 · FLASK LIVE</span>
+                </div>
+
+                <!-- Municipal PDF Brief Button -->
+                <a href="/api/generate-report" target="_blank" class="cf-btn cf-btn-secondary px-3.5 py-2 rounded-xl text-xs" title="Download Official Municipal PDF Brief">
+                    <i class="fa-solid fa-file-pdf text-red-500"></i>
+                    <span class="hidden md:inline">PDF Brief</span>
+                </a>
+
+                <!-- Export CSV Button -->
+                <a href="/api/report?format=csv" class="cf-btn cf-btn-secondary px-3.5 py-2 rounded-xl text-xs" title="Download CSV Telemetry Export">
+                    <i class="fa-solid fa-file-csv text-emerald-600"></i>
+                    <span class="hidden md:inline">Export CSV</span>
+                </a>
+
+                <!-- Simulate Feed Action Button -->
+                <button onclick="openUploadModal()" class="cf-btn cf-btn-primary px-4 py-2 rounded-xl text-xs shadow-md" title="Simulate Dashcam Ingestion or Upload Footage">
+                    <i class="fa-solid fa-video"></i>
+                    <span class="hidden sm:inline">Simulate Feed</span>
+                </button>
+
+                <!-- Light Green / Dark Patrol Theme Toggle -->
+                <button onclick="toggleGlobalTheme()" id="btn-theme-toggle" class="cf-btn cf-btn-secondary h-9 w-9 p-0 rounded-xl text-xs" title="Toggle Light Green / Dark Patrol Theme">
+                    <i class="fa-solid fa-moon text-emerald-700 dark:text-emerald-300" id="theme-toggle-icon"></i>
+                </button>
+
+                <!-- Control Admin Badge -->
+                <div class="h-9 w-9 rounded-xl bg-emerald-100 dark:bg-emerald-900/60 border border-emerald-300 dark:border-emerald-700 flex items-center justify-center font-display font-bold text-xs text-emerald-800 dark:text-emerald-200 shadow-inner" title="Municipal CityFixer Admin">
+                    CF
+                </div>
+            </div>
+
+        </div>
+    </header>
+
+    <!-- ================= MAIN CONTENT WRAPPER ================= -->
+    <main class="flex-1 max-w-[1600px] w-full mx-auto p-4 lg:p-7 space-y-6">
+
+        <!-- ============================================================== -->
+        <!-- TAB 1: OPERATIONS DASHBOARD (Light Green Theme)                -->
+        <!-- ============================================================== -->
+        <div id="tab-dashboard" class="space-y-6">
+
+            <!-- 4 Top KPI Metric Cards Grid -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                
+                <!-- Card 1: Total Detections -->
+                <div class="cf-card p-5 relative overflow-hidden group">
+                    <div class="flex items-start justify-between">
+                        <div>
+                            <span class="text-[11px] font-semibold text-[var(--text-muted)] uppercase tracking-wider">Total Detections</span>
+                            <div class="flex items-baseline space-x-2 mt-1.5">
+                                <span class="font-mono text-3xl font-bold text-[var(--text-heading)]" id="metric-total">0</span>
+                                <span class="text-xs text-emerald-700 dark:text-emerald-400 font-semibold flex items-center gap-1" id="metric-trend-tag">
+                                    <i class="fa-solid fa-arrow-trend-up"></i> Live Synced
+                                </span>
+                            </div>
+                        </div>
+                        <div class="p-2.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 border border-emerald-200 dark:border-emerald-800">
+                            <!-- Mini sparkline SVG -->
+                            <svg width="34" height="20" viewBox="0 0 34 20" fill="none" class="stroke-emerald-600 dark:stroke-emerald-400" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <polyline points="2,16 9,11 16,14 23,6 32,4"></polyline>
+                            </svg>
+                        </div>
+                    </div>
+                    <div class="mt-3 pt-3 border-t border-[var(--border-subtle)] flex items-center justify-between text-[11px] text-[var(--text-muted)]">
+                        <span>Potholes &amp; Structural Cracks</span>
+                        <span class="font-mono text-emerald-700 dark:text-emerald-400 font-medium">100% GPS tagged</span>
+                    </div>
+                </div>
+
+                <!-- Card 2: Critical Tier 1 -->
+                <div class="cf-card p-5 relative overflow-hidden group border-l-4 border-l-red-500">
+                    <div class="flex items-start justify-between">
+                        <div>
+                            <span class="text-[11px] font-semibold text-red-600 dark:text-red-400 uppercase tracking-wider flex items-center gap-1.5">
+                                <span class="h-2 w-2 rounded-full bg-red-500"></span> Critical · Tier 1
+                            </span>
+                            <div class="flex items-baseline space-x-2 mt-1.5">
+                                <span class="font-mono text-3xl font-bold text-red-600 dark:text-red-400" id="metric-tier1">0</span>
+                                <span class="text-xs text-[var(--text-muted)]">hazards</span>
+                            </div>
+                        </div>
+                        <div class="p-2.5 rounded-xl bg-red-50 dark:bg-red-950/60 text-red-500 border border-red-200 dark:border-red-900">
+                            <i class="fa-solid fa-triangle-exclamation text-lg"></i>
+                        </div>
+                    </div>
+                    <div class="mt-3 pt-3 border-t border-[var(--border-subtle)] flex items-center justify-between text-[11px]">
+                        <span class="text-red-600 dark:text-red-400 font-medium">Immediate Cold-Patch Required</span>
+                        <span class="text-[var(--text-muted)]">&lt;24h target</span>
+                    </div>
+                </div>
+
+                <!-- Card 3: Moderate Tier 2 -->
+                <div class="cf-card p-5 relative overflow-hidden group border-l-4 border-l-amber-500">
+                    <div class="flex items-start justify-between">
+                        <div>
+                            <span class="text-[11px] font-semibold text-amber-600 dark:text-amber-400 uppercase tracking-wider flex items-center gap-1.5">
+                                <span class="h-2 w-2 rounded-full bg-amber-500"></span> Moderate · Tier 2
+                            </span>
+                            <div class="flex items-baseline space-x-2 mt-1.5">
+                                <span class="font-mono text-3xl font-bold text-amber-600 dark:text-amber-400" id="metric-pending">0</span>
+                                <span class="text-xs text-[var(--text-muted)]">hazards</span>
+                            </div>
+                        </div>
+                        <div class="p-2.5 rounded-xl bg-amber-50 dark:bg-amber-950/60 text-amber-500 border border-amber-200 dark:border-amber-900">
+                            <i class="fa-solid fa-clock-rotate-left text-lg"></i>
+                        </div>
+                    </div>
+                    <div class="mt-3 pt-3 border-t border-[var(--border-subtle)] flex items-center justify-between text-[11px]">
+                        <span class="text-amber-700 dark:text-amber-400 font-medium">Scheduled Municipal Maintenance</span>
+                        <span class="text-[var(--text-muted)]">Weekly cycle</span>
+                    </div>
+                </div>
+
+                <!-- Card 4: Road Health Index (Radial Gauge) -->
+                <div class="cf-card p-4 flex items-center space-x-4">
+                    <div class="relative flex items-center justify-center shrink-0">
+                        <svg width="74" height="74" viewBox="0 0 74 74" class="transform -rotate-90">
+                            <circle cx="37" cy="37" r="30" fill="none" stroke="currentColor" class="text-emerald-100 dark:text-emerald-950" stroke-width="7"></circle>
+                            <circle id="radial-health-ring" cx="37" cy="37" r="30" fill="none" stroke="#059669" stroke-width="7" stroke-linecap="round" stroke-dasharray="188.5" stroke-dashoffset="0" class="transition-all duration-700"></circle>
+                        </svg>
+                        <div class="absolute inset-0 flex flex-col items-center justify-center">
+                            <span class="font-mono text-xl font-bold text-[var(--text-heading)]" id="metric-health">100</span>
+                        </div>
+                    </div>
+                    <div class="flex-1 min-w-0">
+                        <span class="text-[11px] font-semibold text-[var(--text-muted)] uppercase tracking-wider block">Road Health Index</span>
+                        <div class="text-xs font-bold text-emerald-700 dark:text-emerald-400 mt-1 truncate" id="metric-condition-text">Good Road Condition</div>
+                        <p class="text-[10px] text-[var(--text-muted)] mt-0.5">Multi-factor severity penalty score</p>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- Operations Main Grid: Map on Left, Priority Queue & Feed on Right -->
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+
+                <!-- Left Column (7/12): GIS Spatial Surveillance Map -->
+                <div class="lg:col-span-7 cf-card p-4 flex flex-col shadow-lg h-[620px]">
+                    <!-- Map Header Bar -->
+                    <div class="flex items-center justify-between pb-3 border-b border-[var(--border-subtle)] flex-wrap gap-2">
+                        <div class="flex items-center space-x-2.5">
+                            <div class="h-7 w-7 rounded-lg bg-emerald-100 dark:bg-emerald-950 text-emerald-600 flex items-center justify-center text-xs">
+                                <i class="fa-solid fa-map-location-dot"></i>
+                            </div>
+                            <div>
+                                <h2 class="font-display font-semibold text-sm text-[var(--text-heading)]">GIS Spatial Surveillance — Lahore Roadways</h2>
+                            </div>
+                        </div>
+
+                        <!-- Legend Items -->
+                        <div class="flex items-center space-x-3 text-xs font-medium">
+                            <span class="flex items-center gap-1.5 text-red-600 dark:text-red-400"><span class="h-2 w-2 rounded-full bg-red-500"></span> Tier 1</span>
+                            <span class="flex items-center gap-1.5 text-amber-600 dark:text-amber-400"><span class="h-2 w-2 rounded-full bg-amber-500"></span> Tier 2</span>
+                            <span class="flex items-center gap-1.5 text-sky-600 dark:text-sky-400"><span class="h-2 w-2 rounded-full bg-sky-500"></span> Tier 3</span>
+                            <span class="flex items-center gap-1.5 text-emerald-700 dark:text-emerald-400 hidden sm:inline-flex"><i class="fa-regular fa-circle-dot"></i> DBSCAN Hotspot</span>
+                        </div>
+                    </div>
+
+                    <!-- Map Container with Floating Controls -->
+                    <div class="flex-1 relative mt-3 rounded-xl overflow-hidden border border-[var(--border-card)]" id="map-viewport-wrapper">
+                        <div id="map" class="w-full h-full z-10"></div>
+
+                        <!-- Map Float Sector Pill -->
+                        <div class="absolute top-3 right-3 z-[400] bg-[var(--bg-card)]/90 backdrop-blur-md border border-[var(--border-card)] px-3 py-1.5 rounded-xl text-xs font-semibold text-[var(--text-heading)] shadow-md flex items-center gap-2">
+                            <i class="fa-solid fa-location-crosshairs text-emerald-600"></i> Lahore Metropolitan Sector
+                        </div>
+
+                        <!-- Floating Filter & Layer Controls -->
+                        <div class="absolute bottom-3 left-3 right-3 z-[400] flex items-center justify-between gap-2 flex-wrap pointer-events-none">
+                            <div class="flex items-center space-x-1.5 bg-[var(--bg-card)]/95 backdrop-blur-md border border-[var(--border-card)] p-1.5 rounded-xl shadow-lg pointer-events-auto">
+                                <button onclick="resetMapZoom()" class="p-1.5 px-2 hover:bg-[var(--bg-card-alt)] text-[var(--text-muted)] hover:text-emerald-700 rounded-lg text-xs transition" title="Center on Lahore">
+                                    <i class="fa-solid fa-compress"></i>
+                                </button>
+                                <span class="text-[var(--border-card)]">|</span>
+                                <button onclick="filterMapPins('all')" id="map-filter-all" class="px-2.5 py-1 text-xs font-semibold rounded-lg bg-emerald-600 text-white transition">All Pins</button>
+                                <button onclick="filterMapPins('Tier 1')" id="map-filter-t1" class="px-2.5 py-1 text-xs font-medium rounded-lg text-[var(--text-muted)] hover:text-[var(--text-heading)] transition">Tier 1 Only</button>
+                                <button onclick="filterMapPins('Tier 2')" id="map-filter-t2" class="px-2.5 py-1 text-xs font-medium rounded-lg text-[var(--text-muted)] hover:text-[var(--text-heading)] transition">Tier 2</button>
+                                <span class="text-[var(--border-card)]">|</span>
+                                <button onclick="toggleHeatmap()" id="btn-toggle-heatmap" class="px-2.5 py-1 text-xs font-semibold rounded-lg text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950 transition flex items-center gap-1">
+                                    <i class="fa-solid fa-fire text-amber-500"></i> Heatmap
+                                </button>
+                            </div>
+
+                            <div class="bg-[var(--bg-card)]/95 backdrop-blur-md border border-[var(--border-card)] p-1.5 rounded-xl shadow-lg pointer-events-auto flex items-center space-x-1.5">
+                                <button onclick="toggleMapTheme()" id="btn-map-theme" class="px-2.5 py-1 text-xs font-medium rounded-lg text-[var(--text-heading)] hover:bg-[var(--bg-card-alt)] transition flex items-center gap-1.5">
+                                    <i class="fa-solid fa-layer-group text-emerald-600"></i> <span id="map-theme-label">OpenStreetMap</span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Right Column (5/12): Priority Dispatch Queue + Detection Feed -->
+                <div class="lg:col-span-5 space-y-6">
+
+                    <!-- Priority Dispatch Queue (Auto-Ranked) -->
+                    <div class="cf-card p-5">
+                        <div class="flex items-center justify-between pb-3 border-b border-[var(--border-subtle)]">
+                            <div class="flex items-center space-x-2">
+                                <i class="fa-solid fa-truck-fast text-emerald-600"></i>
+                                <h3 class="font-display font-semibold text-sm text-[var(--text-heading)]">Priority Dispatch Queue</h3>
+                            </div>
+                            <span class="font-mono text-[10px] font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 px-2 py-0.5 rounded-full border border-emerald-300/60">AUTO-RANKED</span>
+                        </div>
+
+                        <!-- Dynamic Queue Items -->
+                        <div class="mt-3.5 space-y-2.5" id="priority-dispatch-list">
+                            <!-- Populated dynamically by JS -->
+                            <div class="text-center py-6 text-xs text-[var(--text-muted)]">
+                                <i class="fa-solid fa-spinner fa-spin text-base mb-1.5"></i><br>
+                                Calculating dispatch priorities...
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Live Detection Feed & Contract Table -->
+                    <div class="cf-card p-5 flex flex-col h-[340px]">
+                        <div class="flex items-center justify-between pb-3 border-b border-[var(--border-subtle)] gap-2 flex-wrap">
+                            <div class="flex items-center space-x-2">
+                                <i class="fa-solid fa-list-check text-emerald-600"></i>
+                                <h3 class="font-display font-semibold text-sm text-[var(--text-heading)]">Detection Feed &amp; Contract</h3>
+                            </div>
+                            <span class="text-[11px] font-mono text-emerald-700 dark:text-emerald-400 font-semibold" id="feed-sync-status">SYNCED LIVE</span>
+                        </div>
+
+                        <!-- Search and Filter Bar -->
+                        <div class="mt-3 flex items-center gap-2">
+                            <div class="relative flex-1">
+                                <i class="fa-solid fa-magnifying-glass absolute left-3 top-2.5 text-[var(--text-muted)] text-xs"></i>
+                                <input type="text" id="feed-search-input" onkeyup="filterTable()" placeholder="Search by ID, road or class…" class="w-full pl-8 pr-3 py-1.5 rounded-xl text-xs bg-[var(--bg-card-alt)] border border-[var(--border-card)] text-[var(--text-heading)] placeholder-[var(--text-muted)] focus:outline-none focus:border-emerald-500">
+                            </div>
+                            <select id="filter-severity" onchange="filterTable()" class="bg-[var(--bg-card-alt)] border border-[var(--border-card)] text-[var(--text-heading)] text-xs rounded-xl px-2 py-1.5 focus:outline-none focus:border-emerald-500">
+                                <option value="all">All Tiers</option>
+                                <option value="Tier 1">Tier 1 (Severe)</option>
+                                <option value="Tier 2">Tier 2 (Moderate)</option>
+                                <option value="Tier 3">Tier 3 (Minor)</option>
+                            </select>
+                        </div>
+
+                        <!-- Feed Items List -->
+                        <div class="flex-1 overflow-y-auto mt-3 pr-1 divide-y divide-[var(--border-subtle)]" id="feed-items-container">
+                            <div class="text-center py-10 text-xs text-[var(--text-muted)]">
+                                <i class="fa-solid fa-satellite-dish fa-spin text-lg text-emerald-600 mb-2"></i><br>
+                                Ingesting road telemetry from Flask...
+                            </div>
+                        </div>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+        </div>
+
+        <!-- ============================================================== -->
+        <!-- TAB 2: ROAD HEALTH & ANALYTICS (Week 4 Stretch)               -->
+        <!-- ============================================================== -->
+        <div id="tab-stretch" class="space-y-6 hidden">
+
+            <!-- Executive Sub-Header Banner -->
+            <div class="cf-card p-6 border-l-4 border-l-emerald-600">
+                <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                    <div>
+                        <h2 class="font-display font-bold text-lg text-[var(--text-heading)] flex items-center gap-2">
+                            <i class="fa-solid fa-chart-line text-emerald-600"></i> Road Degradation Analytics &amp; Municipal Infrastructure Report
+                        </h2>
+                        <p class="text-xs text-[var(--text-muted)] mt-1">Multi-factor asphalt degradation modeling, DBSCAN spatial centroid hotspots, and municipal maintenance briefs.</p>
+                    </div>
+                    <div class="flex items-center space-x-3 flex-wrap">
+                        <a href="/api/generate-report" target="_blank" class="cf-btn cf-btn-primary px-4 py-2.5 rounded-xl text-xs">
+                            <i class="fa-solid fa-file-pdf"></i> Download PDF Brief
+                        </a>
+                        <a href="/api/report?format=csv" class="cf-btn cf-btn-secondary px-4 py-2.5 rounded-xl text-xs">
+                            <i class="fa-solid fa-file-csv"></i> Download CSV
+                        </a>
+                        <button onclick="refreshReportSummary()" class="cf-btn cf-btn-secondary px-4 py-2.5 rounded-xl text-xs">
+                            <i class="fa-solid fa-arrows-rotate"></i> Refresh Data
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Analytics KPI Cards -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <!-- Radial Gauge Card -->
+                <div class="cf-card p-4 flex items-center space-x-4">
+                    <div class="relative flex items-center justify-center shrink-0">
+                        <svg width="78" height="78" viewBox="0 0 78 78" class="transform -rotate-90">
+                            <circle cx="39" cy="39" r="32" fill="none" stroke="currentColor" class="text-emerald-100 dark:text-emerald-950" stroke-width="7"></circle>
+                            <circle id="radial-health-ring-2" cx="39" cy="39" r="32" fill="none" stroke="#059669" stroke-width="7" stroke-linecap="round" stroke-dasharray="201" stroke-dashoffset="50" class="transition-all duration-700"></circle>
+                        </svg>
+                        <div class="absolute inset-0 flex flex-col items-center justify-center">
+                            <span class="font-mono text-xl font-bold text-[var(--text-heading)]" id="stat-integrity-val">88</span>
+                        </div>
+                    </div>
+                    <div>
+                        <span class="text-[11px] font-semibold text-[var(--text-muted)] uppercase tracking-wider block">Road Health Index</span>
+                        <div class="text-xs font-bold text-emerald-700 dark:text-emerald-400 mt-1" id="stat-grade-tag">Grade A (Optimal)</div>
+                        <p class="text-[10px] text-[var(--text-muted)] mt-0.5">Weighted hazard density</p>
+                    </div>
+                </div>
+
+                <!-- Backlog Count -->
+                <div class="cf-card p-5">
+                    <span class="text-[11px] font-semibold text-[var(--text-muted)] uppercase tracking-wider block">Repair Backlog</span>
+                    <div class="font-mono text-3xl font-bold text-[var(--text-heading)] mt-1.5" id="stat-backlog-count">17</div>
+                    <div class="text-xs text-[var(--text-muted)] mt-1">hazards awaiting crew dispatch</div>
+                </div>
+
+                <!-- Estimated Repair Cost (PKR) -->
+                <div class="cf-card p-5">
+                    <span class="text-[11px] font-semibold text-[var(--text-muted)] uppercase tracking-wider block">Est. Repair Budget</span>
+                    <div class="font-mono text-3xl font-bold text-emerald-700 dark:text-emerald-400 mt-1.5" id="stat-budget-val">PKR 1.25M</div>
+                    <div class="text-xs text-[var(--text-muted)] mt-1">calculated civil repair allocation</div>
+                </div>
+
+                <!-- Model mAP@0.5 -->
+                <div class="cf-card p-5">
+                    <span class="text-[11px] font-semibold text-[var(--text-muted)] uppercase tracking-wider block">YOLOv8 Inference mAP</span>
+                    <div class="font-mono text-3xl font-bold text-emerald-600 dark:text-emerald-400 mt-1.5">0.887</div>
+                    <div class="text-xs text-[var(--text-muted)] mt-1">mAP@0.5 · ~42ms frame speed</div>
+                </div>
+            </div>
+
+            <!-- Charts Section: Weekly Trend & Class Breakdown -->
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+
+                <!-- Weekly Trend Chart (7/12) -->
+                <div class="lg:col-span-7 cf-card p-5">
+                    <div class="flex items-center justify-between pb-3 border-b border-[var(--border-subtle)]">
+                        <div>
+                            <h3 class="font-display font-semibold text-sm text-[var(--text-heading)]">Weekly Road Damage Trend</h3>
+                            <p class="text-[11px] text-[var(--text-muted)]">Surveillance detection frequency across 8-week monitoring window</p>
+                        </div>
+                        <div class="flex items-center space-x-3 text-xs">
+                            <span class="flex items-center gap-1 text-red-500 font-medium"><span class="h-2 w-2 rounded-full bg-red-500"></span> Tier 1</span>
+                            <span class="flex items-center gap-1 text-amber-500 font-medium"><span class="h-2 w-2 rounded-full bg-amber-500"></span> Tier 2</span>
+                            <span class="flex items-center gap-1 text-sky-500 font-medium"><span class="h-2 w-2 rounded-full bg-sky-500"></span> Tier 3</span>
+                        </div>
+                    </div>
+
+                    <!-- SVG Trend Graph -->
+                    <div class="mt-4">
+                        <svg viewBox="0 0 600 220" class="w-full h-56 stroke-linecap-round stroke-linejoin-round">
+                            <!-- Background Grid Lines -->
+                            <line x1="20" y1="20" x2="580" y2="20" stroke="currentColor" class="text-gray-200 dark:text-gray-800" stroke-dasharray="4"></line>
+                            <line x1="20" y1="70" x2="580" y2="70" stroke="currentColor" class="text-gray-200 dark:text-gray-800" stroke-dasharray="4"></line>
+                            <line x1="20" y1="120" x2="580" y2="120" stroke="currentColor" class="text-gray-200 dark:text-gray-800" stroke-dasharray="4"></line>
+                            <line x1="20" y1="170" x2="580" y2="170" stroke="currentColor" class="text-gray-200 dark:text-gray-800" stroke-dasharray="4"></line>
+
+                            <!-- Tier 1 Red Curve -->
+                            <polyline points="30,150 110,135 190,140 270,95 350,110 430,65 510,75 570,45" fill="none" stroke="#ef4444" stroke-width="3"></polyline>
+                            <!-- Tier 2 Amber Curve -->
+                            <polyline points="30,175 110,170 190,155 270,160 350,145 430,150 510,135 570,140" fill="none" stroke="#f59e0b" stroke-width="2.5"></polyline>
+                            <!-- Tier 3 Sky Curve -->
+                            <polyline points="30,195 110,192 190,188 270,185 350,188 430,180 510,182 570,175" fill="none" stroke="#0284c7" stroke-width="2"></polyline>
+
+                            <!-- Dots on Tier 1 -->
+                            <circle cx="570" cy="45" r="4" fill="#ef4444"></circle>
+                            <circle cx="430" cy="65" r="4" fill="#ef4444"></circle>
+                        </svg>
+                        <div class="flex justify-between text-[11px] font-mono text-[var(--text-muted)] px-3 -mt-2">
+                            <span>W1</span><span>W2</span><span>W3</span><span>W4</span><span>W5</span><span>W6</span><span>W7</span><span>W8 (Current)</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Classification Breakdown Donut (5/12) -->
+                <div class="lg:col-span-5 cf-card p-5">
+                    <h3 class="font-display font-semibold text-sm text-[var(--text-heading)] pb-3 border-b border-[var(--border-subtle)]">
+                        Damage Classification (RDD2022)
+                    </h3>
+                    <div class="flex items-center gap-6 mt-5">
+                        <div class="relative shrink-0">
+                            <svg width="130" height="130" viewBox="0 0 130 130">
+                                <circle cx="65" cy="65" r="50" fill="none" stroke="currentColor" class="text-gray-100 dark:text-gray-800" stroke-width="20"></circle>
+                                <circle id="donut-pothole" cx="65" cy="65" r="50" fill="none" stroke="#059669" stroke-width="20" stroke-dasharray="314" stroke-dashoffset="120" transform="rotate(-90 65 65)" class="transition-all duration-700"></circle>
+                                <circle id="donut-crack" cx="65" cy="65" r="50" fill="none" stroke="#0284c7" stroke-width="20" stroke-dasharray="314" stroke-dashoffset="240" transform="rotate(50 65 65)" class="transition-all duration-700"></circle>
+                                <circle id="donut-alligator" cx="65" cy="65" r="50" fill="none" stroke="#ef4444" stroke-width="20" stroke-dasharray="314" stroke-dashoffset="280" transform="rotate(140 65 65)" class="transition-all duration-700"></circle>
+                            </svg>
+                            <div class="absolute inset-0 flex items-center justify-center">
+                                <i class="fa-solid fa-chart-pie text-emerald-600 text-xl"></i>
+                            </div>
+                        </div>
+                        <div class="space-y-3 text-xs flex-1">
+                            <div>
+                                <div class="flex justify-between font-medium">
+                                    <span class="flex items-center gap-1.5"><span class="h-2 w-2 rounded-full bg-emerald-600"></span> D40 — Potholes</span>
+                                    <span class="font-mono font-bold" id="breakdown-pothole-pct">60%</span>
+                                </div>
+                                <div class="w-full bg-[var(--border-subtle)] h-1.5 rounded-full mt-1 overflow-hidden">
+                                    <div class="bg-emerald-600 h-full rounded-full" id="bar-pothole" style="width: 60%"></div>
+                                </div>
+                            </div>
+                            <div>
+                                <div class="flex justify-between font-medium">
+                                    <span class="flex items-center gap-1.5"><span class="h-2 w-2 rounded-full bg-sky-600"></span> D10 — Transverse Cracks</span>
+                                    <span class="font-mono font-bold" id="breakdown-crack-pct">25%</span>
+                                </div>
+                                <div class="w-full bg-[var(--border-subtle)] h-1.5 rounded-full mt-1 overflow-hidden">
+                                    <div class="bg-sky-600 h-full rounded-full" id="bar-crack" style="width: 25%"></div>
+                                </div>
+                            </div>
+                            <div>
+                                <div class="flex justify-between font-medium">
+                                    <span class="flex items-center gap-1.5"><span class="h-2 w-2 rounded-full bg-red-500"></span> D20 — Alligator Cracking</span>
+                                    <span class="font-mono font-bold" id="breakdown-alligator-pct">15%</span>
+                                </div>
+                                <div class="w-full bg-[var(--border-subtle)] h-1.5 rounded-full mt-1 overflow-hidden">
+                                    <div class="bg-red-500 h-full rounded-full" id="bar-alligator" style="width: 15%"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- Bottom Row: Damage Density Matrix + Model Performance Metrics -->
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+
+                <!-- Damage Density Matrix (7/12) -->
+                <div class="lg:col-span-7 cf-card p-5">
+                    <div class="flex items-center justify-between pb-2 border-b border-[var(--border-subtle)]">
+                        <div>
+                            <h3 class="font-display font-semibold text-sm text-[var(--text-heading)]">Sector Damage Density Matrix</h3>
+                            <p class="text-[11px] text-[var(--text-muted)]">Surveyed road kilometers across 13 Lahore municipal zones</p>
+                        </div>
+                        <span class="text-[11px] font-mono text-emerald-700 dark:text-emerald-400 font-semibold">HOTSPOT GRID</span>
+                    </div>
+
+                    <!-- 13 x 3 Matrix -->
+                    <div class="grid grid-cols-13 gap-1.5 mt-4" style="grid-template-columns: repeat(13, minmax(0, 1fr));">
+                        <!-- Row 1 -->
+                        <div class="heat-cell h-6 rounded bg-emerald-100 dark:bg-emerald-950" title="Zone 1: Low"></div>
+                        <div class="heat-cell h-6 rounded bg-emerald-200 dark:bg-emerald-900" title="Zone 2: Low-Med"></div>
+                        <div class="heat-cell h-6 rounded bg-emerald-400 dark:bg-emerald-700" title="Zone 3: Med"></div>
+                        <div class="heat-cell h-6 rounded bg-emerald-600 dark:bg-emerald-500" title="Zone 4: High"></div>
+                        <div class="heat-cell h-6 rounded bg-amber-400 dark:bg-amber-600" title="Zone 5: Alert"></div>
+                        <div class="heat-cell h-6 rounded bg-emerald-300 dark:bg-emerald-800" title="Zone 6: Med"></div>
+                        <div class="heat-cell h-6 rounded bg-emerald-100 dark:bg-emerald-950" title="Zone 7: Low"></div>
+                        <div class="heat-cell h-6 rounded bg-red-400 dark:bg-red-700" title="Zone 8: Critical Hotspot"></div>
+                        <div class="heat-cell h-6 rounded bg-red-500 dark:bg-red-600" title="Zone 9: Critical Hotspot"></div>
+                        <div class="heat-cell h-6 rounded bg-amber-400 dark:bg-amber-600" title="Zone 10: Alert"></div>
+                        <div class="heat-cell h-6 rounded bg-emerald-200 dark:bg-emerald-900" title="Zone 11: Low-Med"></div>
+                        <div class="heat-cell h-6 rounded bg-emerald-100 dark:bg-emerald-950" title="Zone 12: Low"></div>
+                        <div class="heat-cell h-6 rounded bg-emerald-300 dark:bg-emerald-800" title="Zone 13: Med"></div>
+
+                        <!-- Row 2 -->
+                        <div class="heat-cell h-6 rounded bg-emerald-200 dark:bg-emerald-900"></div>
+                        <div class="heat-cell h-6 rounded bg-emerald-400 dark:bg-emerald-700"></div>
+                        <div class="heat-cell h-6 rounded bg-emerald-600 dark:bg-emerald-500"></div>
+                        <div class="heat-cell h-6 rounded bg-amber-500 dark:bg-amber-600"></div>
+                        <div class="heat-cell h-6 rounded bg-red-500 dark:bg-red-600"></div>
+                        <div class="heat-cell h-6 rounded bg-emerald-400 dark:bg-emerald-700"></div>
+                        <div class="heat-cell h-6 rounded bg-emerald-200 dark:bg-emerald-900"></div>
+                        <div class="heat-cell h-6 rounded bg-emerald-300 dark:bg-emerald-800"></div>
+                        <div class="heat-cell h-6 rounded bg-amber-400 dark:bg-amber-600"></div>
+                        <div class="heat-cell h-6 rounded bg-emerald-300 dark:bg-emerald-800"></div>
+                        <div class="heat-cell h-6 rounded bg-emerald-100 dark:bg-emerald-950"></div>
+                        <div class="heat-cell h-6 rounded bg-emerald-100 dark:bg-emerald-950"></div>
+                        <div class="heat-cell h-6 rounded bg-emerald-200 dark:bg-emerald-900"></div>
+
+                        <!-- Row 3 -->
+                        <div class="heat-cell h-6 rounded bg-emerald-100 dark:bg-emerald-950"></div>
+                        <div class="heat-cell h-6 rounded bg-emerald-200 dark:bg-emerald-900"></div>
+                        <div class="heat-cell h-6 rounded bg-emerald-300 dark:bg-emerald-800"></div>
+                        <div class="heat-cell h-6 rounded bg-emerald-500 dark:bg-emerald-600"></div>
+                        <div class="heat-cell h-6 rounded bg-emerald-300 dark:bg-emerald-800"></div>
+                        <div class="heat-cell h-6 rounded bg-emerald-100 dark:bg-emerald-950"></div>
+                        <div class="heat-cell h-6 rounded bg-amber-400 dark:bg-amber-600"></div>
+                        <div class="heat-cell h-6 rounded bg-red-400 dark:bg-red-700"></div>
+                        <div class="heat-cell h-6 rounded bg-emerald-200 dark:bg-emerald-900"></div>
+                        <div class="heat-cell h-6 rounded bg-emerald-100 dark:bg-emerald-950"></div>
+                        <div class="heat-cell h-6 rounded bg-emerald-300 dark:bg-emerald-800"></div>
+                        <div class="heat-cell h-6 rounded bg-emerald-100 dark:bg-emerald-950"></div>
+                        <div class="heat-cell h-6 rounded bg-emerald-200 dark:bg-emerald-900"></div>
+                    </div>
+
+                    <!-- Density Legend -->
+                    <div class="flex items-center justify-between text-[11px] text-[var(--text-muted)] mt-3 pt-2 border-t border-[var(--border-subtle)]">
+                        <span class="flex items-center gap-1.5">
+                            Low Density <span class="h-2.5 w-4 rounded bg-emerald-200 dark:bg-emerald-900 inline-block"></span>
+                            <span class="h-2.5 w-4 rounded bg-emerald-500 inline-block"></span>
+                            <span class="h-2.5 w-4 rounded bg-amber-400 inline-block"></span>
+                            <span class="h-2.5 w-4 rounded bg-red-500 inline-block"></span> High Severity
+                        </span>
+                        <span>13 Regional Road Segments</span>
+                    </div>
+                </div>
+
+                <!-- Model Performance (5/12) -->
+                <div class="lg:col-span-5 cf-card p-5">
+                    <h3 class="font-display font-semibold text-sm text-[var(--text-heading)] pb-3 border-b border-[var(--border-subtle)]">
+                        Model Training &amp; Accuracy Metrics
+                    </h3>
+                    <div class="space-y-3.5 mt-4 text-xs">
+                        <div>
+                            <div class="flex justify-between mb-1">
+                                <span class="font-medium text-[var(--text-muted)]">Precision (Potholes / Cavities)</span>
+                                <span class="font-mono font-bold text-emerald-700 dark:text-emerald-400">91.4%</span>
+                            </div>
+                            <div class="w-full bg-[var(--border-subtle)] h-2 rounded-full overflow-hidden">
+                                <div class="bg-emerald-600 h-full rounded-full" style="width: 91.4%"></div>
+                            </div>
+                        </div>
+                        <div>
+                            <div class="flex justify-between mb-1">
+                                <span class="font-medium text-[var(--text-muted)]">Recall Rate</span>
+                                <span class="font-mono font-bold text-emerald-700 dark:text-emerald-400">86.2%</span>
+                            </div>
+                            <div class="w-full bg-[var(--border-subtle)] h-2 rounded-full overflow-hidden">
+                                <div class="bg-emerald-500 h-full rounded-full" style="width: 86.2%"></div>
+                            </div>
+                        </div>
+                        <div class="pt-2 border-t border-[var(--border-subtle)] flex items-center justify-between">
+                            <span class="text-[var(--text-muted)]">Training Dataset (RDD2022)</span>
+                            <span class="font-mono font-semibold text-[var(--text-heading)]">6,480 images</span>
+                        </div>
+                        <div class="flex items-center justify-between">
+                            <span class="text-[var(--text-muted)]">Base Architecture</span>
+                            <span class="font-mono font-semibold text-emerald-700 dark:text-emerald-400">YOLOv8 Nano (PyTorch)</span>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- Municipal Executive Narrative Box -->
+            <div class="cf-card p-6 bg-emerald-50/50 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-800/60">
+                <div class="flex items-center justify-between pb-3 border-b border-emerald-200/80 dark:border-emerald-800/80">
+                    <h3 class="font-display font-semibold text-sm text-emerald-900 dark:text-emerald-300 flex items-center gap-2">
+                        <i class="fa-solid fa-file-shield text-emerald-600"></i> Municipal Executive Summary &amp; Action Plan
+                    </h3>
+                    <span class="font-mono text-[10px] font-bold bg-emerald-200/80 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-200 px-2 py-0.5 rounded-full">Automated Civil Brief</span>
+                </div>
+                <div id="analytics-report-content" class="mt-4 text-xs leading-relaxed text-[var(--text-body)] space-y-2">
+                    <p>Loading real-time infrastructure degradation metrics from database...</p>
+                </div>
+            </div>
+
+        </div>
+
+    </main>
+
+    <!-- ================= INSPECT DETECTION MODAL ================= -->
+    <div id="inspection-modal" class="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm hidden items-center justify-center p-4">
+        <div class="cf-card max-w-2xl w-full p-6 shadow-2xl relative space-y-5 border-2 border-emerald-500/30">
+            <div class="flex items-center justify-between border-b border-[var(--border-subtle)] pb-3">
+                <div class="flex items-center space-x-2.5">
+                    <span id="modal-badge-tier" class="px-2.5 py-0.5 rounded-full text-xs font-bold bg-red-100 text-red-700 border border-red-300">Tier 1</span>
+                    <h3 class="font-display font-bold text-base text-[var(--text-heading)]" id="modal-title">DETECTION-001</h3>
+                </div>
+                <button onclick="closeModal()" class="text-[var(--text-muted)] hover:text-[var(--text-heading)] p-1.5 rounded-lg transition">
+                    <i class="fa-solid fa-xmark text-lg"></i>
+                </button>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+                <!-- Image with Bounding Box Overlay -->
+                <div class="relative bg-slate-900 rounded-xl overflow-hidden border border-[var(--border-card)] h-64 flex items-center justify-center">
+                    <img id="modal-img" src="https://images.unsplash.com/photo-1515162816999-a0c47dc192f7?auto=format&fit=crop&w=600&q=80" alt="Damage Footage" class="w-full h-full object-cover">
+                    <div id="modal-bbox" class="absolute border-2 border-red-500 bg-red-500/20 rounded pointer-events-none transition-all duration-300" style="top: 25%; left: 20%; width: 55%; height: 50%;">
+                        <span id="modal-bbox-label" class="absolute -top-6 left-0 bg-red-600 text-white font-mono text-[10px] px-1.5 py-0.5 rounded shadow font-bold">pothole 94%</span>
+                    </div>
+                </div>
+
+                <!-- Detection Payload Contract Details -->
+                <div class="space-y-2.5 font-mono text-xs bg-[var(--bg-card-alt)] p-4 rounded-xl border border-[var(--border-card)]">
+                    <div class="text-[11px] font-sans font-bold text-emerald-800 dark:text-emerald-300 uppercase tracking-wider mb-1 flex items-center gap-1.5">
+                        <i class="fa-solid fa-code"></i> JSON Contract Telemetry
+                    </div>
+                    <div class="flex justify-between py-1 border-b border-[var(--border-subtle)]">
+                        <span class="text-[var(--text-muted)] font-sans">Detection ID:</span>
+                        <span class="text-emerald-700 dark:text-emerald-400 font-bold truncate max-w-[140px]" id="modal-json-id">-</span>
+                    </div>
+                    <div class="flex justify-between py-1 border-b border-[var(--border-subtle)]">
+                        <span class="text-[var(--text-muted)] font-sans">Class Name:</span>
+                        <span class="text-[var(--text-heading)] uppercase font-bold" id="modal-json-class">-</span>
+                    </div>
+                    <div class="flex justify-between py-1 border-b border-[var(--border-subtle)]">
+                        <span class="text-[var(--text-muted)] font-sans">Confidence:</span>
+                        <span class="text-emerald-600 font-bold" id="modal-json-conf">-</span>
+                    </div>
+                    <div class="flex justify-between py-1 border-b border-[var(--border-subtle)]">
+                        <span class="text-[var(--text-muted)] font-sans">GPS Coordinates:</span>
+                        <span class="text-[var(--text-heading)] font-semibold" id="modal-json-gps">-</span>
+                    </div>
+                    <div class="flex justify-between py-1 border-b border-[var(--border-subtle)]">
+                        <span class="text-[var(--text-muted)] font-sans">Timestamp (UTC):</span>
+                        <span class="text-[var(--text-body)]" id="modal-json-time">-</span>
+                    </div>
+                    <div class="flex justify-between py-1">
+                        <span class="text-[var(--text-muted)] font-sans">Severity Tier:</span>
+                        <span class="text-red-600 font-bold" id="modal-json-severity">Tier 1</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Modal Action Buttons -->
+            <div class="flex items-center justify-between pt-3 border-t border-[var(--border-subtle)]">
+                <button onclick="focusMapOnSelected()" class="cf-btn cf-btn-secondary px-4 py-2 rounded-xl text-xs">
+                    <i class="fa-solid fa-crosshairs text-emerald-600"></i> Center on Map
+                </button>
+                <div class="flex items-center space-x-2.5">
+                    <button onclick="closeModal()" class="cf-btn cf-btn-secondary px-4 py-2 rounded-xl text-xs">Close</button>
+                    <button onclick="dispatchRepairTeam()" class="cf-btn cf-btn-primary px-4 py-2 rounded-xl text-xs">
+                        <i class="fa-solid fa-truck-fast"></i> Dispatch Repair Crew
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ================= SIMULATE FEED / UPLOAD MODAL ================= -->
+    <div id="upload-modal" class="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm hidden items-center justify-center p-4">
+        <div class="cf-card max-w-lg w-full p-6 shadow-2xl relative space-y-5 border-2 border-emerald-500/30">
+            <div class="flex items-center justify-between border-b border-[var(--border-subtle)] pb-3">
+                <h3 class="font-display font-bold text-base text-[var(--text-heading)] flex items-center gap-2">
+                    <i class="fa-solid fa-video text-emerald-600"></i> Simulate Dashcam Video Telemetry Feed
+                </h3>
+                <button onclick="closeUploadModal()" class="text-[var(--text-muted)] hover:text-[var(--text-heading)] p-1.5 rounded-lg transition">
+                    <i class="fa-solid fa-xmark text-lg"></i>
+                </button>
+            </div>
+            
+            <div class="border-2 border-dashed border-emerald-300 dark:border-emerald-800 hover:border-emerald-500 rounded-2xl p-7 text-center cursor-pointer transition bg-emerald-50/50 dark:bg-emerald-950/20" onclick="simulateFeedSuccess()">
+                <div class="h-12 w-12 mx-auto rounded-full bg-emerald-100 dark:bg-emerald-900 text-emerald-600 flex items-center justify-center mb-3">
+                    <i class="fa-solid fa-film text-xl"></i>
+                </div>
+                <p class="text-sm font-semibold text-[var(--text-heading)]">Drop local dashcam video (.mp4) or click to simulate live feed</p>
+                <p class="text-xs text-[var(--text-muted)] mt-1.5">Samples frames at 1 FPS, generates YOLO detection telemetry contract, and posts to <code class="font-mono text-emerald-700 dark:text-emerald-400 font-bold">/api/detections</code>.</p>
+            </div>
+
+            <!-- Quick Action Preset Buttons -->
+            <div class="grid grid-cols-2 gap-2 text-xs">
+                <button onclick="seedDemoHazards()" class="p-2.5 rounded-xl border border-[var(--border-card)] hover:border-emerald-500 bg-[var(--bg-card-alt)] text-[var(--text-heading)] font-semibold transition flex items-center justify-center gap-1.5">
+                    <i class="fa-solid fa-seedling text-emerald-600"></i> Seed 25 Hazards
+                </button>
+                <button onclick="simulateFeedSuccess()" class="p-2.5 rounded-xl border border-[var(--border-card)] hover:border-emerald-500 bg-[var(--bg-card-alt)] text-[var(--text-heading)] font-semibold transition flex items-center justify-center gap-1.5">
+                    <i class="fa-solid fa-car-on text-emerald-600"></i> 1 Drive Frame
+                </button>
+            </div>
+
+            <div class="flex justify-end space-x-2.5 pt-2 border-t border-[var(--border-subtle)]">
+                <button onclick="closeUploadModal()" class="cf-btn cf-btn-secondary px-4 py-2 rounded-xl text-xs">Cancel</button>
+                <button onclick="simulateFeedSuccess()" class="cf-btn cf-btn-primary px-4 py-2 rounded-xl text-xs">Run Live Simulation</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ================= FLOATING TOAST NOTIFICATION ================= -->
+    <div id="toast" class="fixed bottom-6 right-6 z-50 transform translate-y-24 opacity-0 transition-all duration-300 pointer-events-none">
+        <div class="cf-card px-4 py-3 rounded-2xl shadow-xl flex items-center space-x-3 border border-emerald-500/40 bg-[var(--bg-card)]">
+            <div class="h-9 w-9 rounded-xl bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300 flex items-center justify-center text-sm font-bold shrink-0">
+                <i class="fa-solid fa-circle-check" id="toast-icon"></i>
+            </div>
+            <div>
+                <h4 class="font-bold text-xs text-[var(--text-heading)]" id="toast-title">Notification</h4>
+                <p class="text-[11px] text-[var(--text-muted)]" id="toast-desc">Operation completed successfully.</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- ================= APPLICATION JAVASCRIPT ================= -->
+    <script>
+        // State
+        let allDetections = [];
+        let allClusters = [];
+        let map = null;
+        let markersLayer = null;
+        let clustersLayer = null;
+        let heatLayer = null;
+        let showHeatmap = false;
+        let currentMapTheme = 'osm'; // 'osm' or 'esri' — 100% free, ZERO API keys required
+        let selectedDetection = null;
+        let currentFilterSeverity = 'all';
+        let currentFilterClass = 'all';
+        let mapPinFilter = 'all';
+        let dispatchedItems = new Set();
+
+        // Lahore Metropolitan Geo Coordinates
+        const LAHORE_CENTER = [31.5497, 74.3436];
+        const LAHORE_BOUNDS = L.latLngBounds(
+            [31.2500, 74.0500],
+            [31.7200, 74.5800]
+        );
+
+        // Predefined Realistic Road Names for Lahore Priority Queue
+        const LAHORE_ROADS = [
+            "Sundar Das Road, Gulberg",
+            "Mall Road (Shahrah-e-Quaid-e-Azam)",
+            "Ferozepur Road Transit Corridor",
+            "Jauhar Town Boulevard",
+            "Canal Bank Road (Campus Sector)",
+            "Main Boulevard Gulberg III",
+            "Allama Iqbal Road, Garhi Shahu",
+            "M.M. Alam Road Commercial Strip",
+            "Circular Road, Walled City",
+            "Raiwind Road Logistics Sector"
+        ];
+
+        window.onload = function() {
+            initMap();
+            fetchDetections();
+            setInterval(fetchDetections, 5000);
+        };
+
+        // Initialize Leaflet Map with 100% Free OpenStreetMap Tiles (NO API KEY REQUIRED)
+        function initMap() {
+            map = L.map('map', {
+                zoomControl: false,
+                maxBounds: LAHORE_BOUNDS,
+                maxBoundsViscosity: 1.0,
+                minZoom: 11,
+                maxZoom: 19
+            }).setView(LAHORE_CENTER, 13);
+
+            L.control.zoom({ position: 'topleft' }).addTo(map);
+
+            // 100% Free OpenStreetMap tiles — no API key, no watermarks, unlimited public usage
+            window.tileLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                minZoom: 11,
+                maxZoom: 19,
+                bounds: LAHORE_BOUNDS,
+                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank">OpenStreetMap</a> contributors'
+            }).addTo(map);
+
+            clustersLayer = L.layerGroup().addTo(map);
+            markersLayer = L.layerGroup().addTo(map);
+        }
+
+        // Toggle Map Tile Styles (Both 100% Free, NO API KEY)
+        function toggleMapTheme() {
+            if (currentMapTheme === 'osm') {
+                // Free Esri Street map (crisp, clean road typography, no API key)
+                window.tileLayer.setUrl('https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}');
+                currentMapTheme = 'esri';
+                document.getElementById('map-theme-label').innerText = 'Esri Topo';
+                showToast("Map Style", "Switched to Esri Topographic Street view.");
+            } else {
+                window.tileLayer.setUrl('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png');
+                currentMapTheme = 'osm';
+                document.getElementById('map-theme-label').innerText = 'OpenStreetMap';
+                showToast("Map Style", "Switched to standard OpenStreetMap view.");
+            }
+        }
+
+        // Toggle Heatmap Stretch Feature Layer
+        function toggleHeatmap() {
+            showHeatmap = !showHeatmap;
+            const btn = document.getElementById('btn-toggle-heatmap');
+            if (showHeatmap) {
+                btn.className = "px-2.5 py-1 text-xs font-semibold rounded-lg bg-emerald-600 text-white transition flex items-center gap-1";
+                if (!heatLayer && window.L && L.heatLayer) {
+                    const heatPoints = allDetections.map(d => {
+                        const lat = d.gps?.latitude || d.latitude;
+                        const lon = d.gps?.longitude || d.longitude;
+                        const intensity = d.severity === 'Tier 1' ? 1.0 : (d.severity === 'Tier 2' ? 0.6 : 0.3);
+                        return [lat, lon, intensity];
+                    });
+                    heatLayer = L.heatLayer(heatPoints, { radius: 30, blur: 18, maxZoom: 16 });
+                }
+                if (heatLayer) heatLayer.addTo(map);
+                showToast("Heatmap Active", "Road hazard density heatmap layer enabled.");
+            } else {
+                btn.className = "px-2.5 py-1 text-xs font-semibold rounded-lg text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950 transition flex items-center gap-1";
+                if (heatLayer) map.removeLayer(heatLayer);
+                showToast("Heatmap Inactive", "Heatmap layer hidden.");
+            }
+        }
+
+        // Fetch Detections from Flask backend
+        async function fetchDetections() {
+            try {
+                const response = await fetch('/api/detections');
+                if (!response.ok) return;
+                const data = await response.json();
+                allDetections = data.detections || [];
+                updateDashboard(allDetections);
+                fetchClusters();
+            } catch (err) {
+                console.warn('API sync status: Waiting for backend...');
+            }
+        }
+
+        // Fetch DBSCAN clusters
+        async function fetchClusters() {
+            try {
+                const res = await fetch('/api/clusters');
+                if (!res.ok) return;
+                const data = await res.json();
+                allClusters = data.clusters || [];
+                renderClusters(allClusters);
+            } catch (err) {
+                console.warn('Clusters sync:', err);
+            }
+        }
+
+        // Render DBSCAN Hotspot Zones on Leaflet Map
+        function renderClusters(clusters) {
+            if (!clustersLayer) return;
+            clustersLayer.clearLayers();
+
+            clusters.forEach(c => {
+                const lat = c.center?.latitude;
+                const lng = c.center?.longitude;
+                if (!lat || !lng) return;
+
+                const isCritical = c.dominant_severity === 'Tier 1';
+                const color = isCritical ? '#ef4444' : '#f59e0b';
+
+                const circle = L.circle([lat, lng], {
+                    radius: Math.max(35, c.radius_meters || 60),
+                    color: color,
+                    fillColor: color,
+                    fillOpacity: 0.14,
+                    dashArray: '5, 8',
+                    weight: 2
+                });
+
+                const popupHtml = `
+                    <div style="padding:4px 6px;font-family:'Inter',sans-serif;font-size:12px;">
+                        <div style="font-weight:700;font-size:13px;color:${color};margin-bottom:4px;display:flex;align-items:center;gap:6px;">
+                            <i class="fa-solid fa-fire"></i> Hotspot #${c.cluster_id}
+                        </div>
+                        <div style="color:var(--text-heading);margin-bottom:2px;">
+                            Density: <strong>${c.total_hazards} hazards</strong> (${c.dominant_severity})
+                        </div>
+                        <div style="color:var(--text-muted);font-size:11px;margin-bottom:4px;">
+                            Radius: ~${Math.round(c.radius_meters)}m · Mean Severity: ${c.average_severity_score}/3.0
+                        </div>
+                        <div style="font-weight:600;font-size:11px;color:#059669;">
+                            ${escapeHtml(c.priority)}
+                        </div>
+                    </div>
+                `;
+
+                circle.bindPopup(popupHtml);
+                clustersLayer.addLayer(circle);
+            });
+        }
+
+        // Master Dashboard UI Update
+        function updateDashboard(detections) {
+            updateMetrics(detections);
+            renderMapPins(detections);
+            renderPriorityQueue(detections);
+            renderFeed(detections);
+            updateAnalyticsBreakdown(detections);
+        }
+
+        // 4 KPI Cards & Gauge update
+        function updateMetrics(detections) {
+            const total = detections.length;
+            let t1 = 0, t2 = 0, t3 = 0;
+
+            detections.forEach(d => {
+                if (d.severity === 'Tier 1') t1++;
+                else if (d.severity === 'Tier 2') t2++;
+                else t3++;
+            });
+
+            const penalty = (t1 * 3.5) + (t2 * 1.8) + (t3 * 0.6);
+            const healthIndex = total > 0 ? Math.max(15, Math.round(100 - penalty)) : 100;
+
+            document.getElementById('metric-total').innerText = total;
+            document.getElementById('metric-tier1').innerText = t1;
+            document.getElementById('metric-pending').innerText = t2;
+            document.getElementById('metric-health').innerText = healthIndex;
+            document.getElementById('stat-integrity-val').innerText = healthIndex;
+            document.getElementById('stat-backlog-count').innerText = t1 + t2;
+
+            // Estimated Budget Calculation
+            const estPKR = Math.round((t1 * 45000) + (t2 * 22000) + (t3 * 8000));
+            const pkrText = estPKR > 1000000 ? `PKR ${(estPKR/1000000).toFixed(2)}M` : `PKR ${(estPKR/1000).toFixed(0)}K`;
+            document.getElementById('stat-budget-val').innerText = pkrText;
+
+            // Radial Ring animations
+            const strokeOffset = Math.round(188.5 - (188.5 * (healthIndex / 100)));
+            const ring1 = document.getElementById('radial-health-ring');
+            if (ring1) {
+                ring1.style.strokeDashoffset = strokeOffset;
+                ring1.style.stroke = healthIndex >= 75 ? '#059669' : (healthIndex >= 45 ? '#f59e0b' : '#ef4444');
+            }
+
+            const ring2 = document.getElementById('radial-health-ring-2');
+            if (ring2) {
+                ring2.style.strokeDashoffset = Math.round(201 - (201 * (healthIndex / 100)));
+                ring2.style.stroke = ring1 ? ring1.style.stroke : '#059669';
+            }
+
+            const condEl = document.getElementById('metric-condition-text');
+            const gradeEl = document.getElementById('stat-grade-tag');
+            if (healthIndex >= 80) {
+                condEl.innerText = 'Good Road Condition';
+                condEl.className = 'text-xs font-bold text-emerald-700 dark:text-emerald-400 mt-1 truncate';
+                gradeEl.innerText = 'Grade A (Optimal)';
+            } else if (healthIndex >= 50) {
+                condEl.innerText = 'Moderate Degradation';
+                condEl.className = 'text-xs font-bold text-amber-600 dark:text-amber-400 mt-1 truncate';
+                gradeEl.innerText = 'Grade B (Maintenance Scheduled)';
+            } else {
+                condEl.innerText = 'Critical Surface Failure';
+                condEl.className = 'text-xs font-bold text-red-600 dark:text-red-400 mt-1 truncate';
+                gradeEl.innerText = 'Grade C (Emergency Action Required)';
+            }
+        }
+
+        // Render Map Pins with Light Green Theme SVG Icons
+        function renderMapPins(detections) {
+            if (!markersLayer) return;
+            markersLayer.clearLayers();
+
+            const filtered = detections.filter(d => {
+                if (mapPinFilter === 'all') return true;
+                return d.severity === mapPinFilter;
+            });
+
+            filtered.forEach(d => {
+                const lat = d.gps?.latitude || d.latitude;
+                const lon = d.gps?.longitude || d.longitude;
+                if (!lat || !lon) return;
+
+                let color = '#0284c7';
+                let tierClass = 'Tier 3';
+                if (d.severity === 'Tier 1') {
+                    color = '#ef4444';
+                    tierClass = 'Tier 1';
+                } else if (d.severity === 'Tier 2') {
+                    color = '#f59e0b';
+                    tierClass = 'Tier 2';
+                }
+
+                // Custom SVG teardrop icon
+                const customIcon = L.divIcon({
+                    className: 'custom-pin-marker',
+                    html: `
+                        <div style="position:relative;width:24px;height:24px;display:flex;align-items:center;justify-content:center;">
+                            ${tierClass === 'Tier 1' ? '<div class="pulse-ring" style="position:absolute;width:34px;height:34px;border-radius:50%;background:'+color+';"></div>' : ''}
+                            <div style="width:18px;height:18px;border-radius:50% 50% 50% 0;background:${color};transform:rotate(-45deg);border:2px solid #ffffff;box-shadow:0 2px 6px rgba(0,0,0,0.3);"></div>
+                        </div>
+                    `,
+                    iconSize: [24, 24],
+                    iconAnchor: [12, 22]
+                });
+
+                const marker = L.marker([lat, lon], { icon: customIcon });
+
+                const popupContent = `
+                    <div style="padding:6px 8px;font-family:'Inter',sans-serif;font-size:12px;">
+                        <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:6px;">
+                            <span style="font-weight:700;font-size:12px;color:${color};text-transform:uppercase;">${escapeHtml(d.class_name)}</span>
+                            <span style="font-size:10px;font-weight:700;padding:1px 6px;border-radius:12px;background:${color}20;color:${color};">${d.severity}</span>
+                        </div>
+                        <div style="color:var(--text-muted);font-size:11px;margin-bottom:6px;font-family:'JetBrains Mono',monospace;">
+                            📍 ${Number(lat).toFixed(4)}°N, ${Number(lon).toFixed(4)}°E
+                        </div>
+                        <button onclick="inspectDetection('${d.detection_id}')" style="width:100%;padding:4px 8px;border-radius:6px;border:none;background:#059669;color:#ffffff;font-size:11px;font-weight:600;cursor:pointer;">
+                            Inspect Detection Payload →
+                        </button>
+                    </div>
+                `;
+
+                marker.bindPopup(popupContent);
+                markersLayer.addLayer(marker);
+            });
+        }
+
+        // Render Priority Dispatch Queue
+        function renderPriorityQueue(detections) {
+            const container = document.getElementById('priority-dispatch-list');
+            if (!container) return;
+
+            // Prioritize Tier 1 first, then Tier 2
+            const queue = [...detections].sort((a, b) => {
+                const sMap = { 'Tier 1': 3, 'Tier 2': 2, 'Tier 3': 1 };
+                return (sMap[b.severity] || 0) - (sMap[a.severity] || 0);
+            }).slice(0, 4);
+
+            if (queue.length === 0) {
+                container.innerHTML = `
+                    <div class="text-center py-6 text-xs text-[var(--text-muted)]">
+                        <i class="fa-solid fa-circle-check text-emerald-600 text-lg mb-1"></i><br>
+                        No critical road hazards currently pending dispatch.
+                    </div>
+                `;
+                return;
+            }
+
+            let html = '';
+            queue.forEach((item, idx) => {
+                const roadName = LAHORE_ROADS[idx % LAHORE_ROADS.length];
+                const isT1 = item.severity === 'Tier 1';
+                const color = isT1 ? '#ef4444' : '#f59e0b';
+                const estPKR = isT1 ? 'PKR 38,500' : 'PKR 19,000';
+                const isDispatched = dispatchedItems.has(item.detection_id);
+
+                html += `
+                    <div class="flex items-center justify-between p-2.5 rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-card-alt)] hover:border-emerald-500/50 transition">
+                        <div class="flex items-center space-x-3 min-w-0">
+                            <span class="font-mono font-bold text-xs" style="color:${color};width:16px;">${idx + 1}</span>
+                            <div class="min-w-0">
+                                <div class="text-xs font-semibold text-[var(--text-heading)] truncate">${roadName}</div>
+                                <div class="text-[11px] text-[var(--text-muted)] flex items-center gap-1.5">
+                                    <span style="color:${color};font-weight:600;">${item.severity}</span>
+                                    <span>·</span>
+                                    <span>Est. ${estPKR}</span>
+                                </div>
+                            </div>
+                        </div>
+                        <button onclick="dispatchQueueItem('${item.detection_id}', '${roadName}')" class="cf-btn px-3 py-1.5 rounded-lg text-xs font-semibold transition ${isDispatched ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300' : 'cf-btn-primary'}">
+                            ${isDispatched ? '<i class="fa-solid fa-check mr-1"></i> En Route' : 'Dispatch'}
+                        </button>
+                    </div>
+                `;
+            });
+
+            container.innerHTML = html;
+        }
+
+        // Render Live Detection Feed List
+        function renderFeed(detections) {
+            const container = document.getElementById('feed-items-container');
+            const searchVal = (document.getElementById('feed-search-input')?.value || '').toLowerCase();
+            const sevFilter = document.getElementById('filter-severity')?.value || 'all';
+
+            const filtered = detections.filter(d => {
+                if (sevFilter !== 'all' && d.severity !== sevFilter) return false;
+                if (searchVal) {
+                    const matchId = (d.detection_id || '').toLowerCase().includes(searchVal);
+                    const matchClass = (d.class_name || '').toLowerCase().includes(searchVal);
+                    if (!matchId && !matchClass) return false;
+                }
+                return true;
+            });
+
+            if (filtered.length === 0) {
+                container.innerHTML = `
+                    <div class="text-center py-8 text-xs text-[var(--text-muted)]">
+                        No detections matching current filter criteria.
+                    </div>
+                `;
+                return;
+            }
+
+            let html = '';
+            filtered.slice(0, 15).forEach(d => {
+                const shortId = (d.detection_id || '').substring(0, 8) + '…';
+                const isT1 = d.severity === 'Tier 1';
+                const isT2 = d.severity === 'Tier 2';
+                const badgeColor = isT1 ? 'bg-red-50 text-red-600 border-red-200 dark:bg-red-950 dark:text-red-300 dark:border-red-800' : 
+                                   (isT2 ? 'bg-amber-50 text-amber-600 border-amber-200 dark:bg-amber-950 dark:text-amber-300 dark:border-amber-800' : 
+                                           'bg-sky-50 text-sky-600 border-sky-200 dark:bg-sky-950 dark:text-sky-300 dark:border-sky-800');
+
+                html += `
+                    <div onclick="inspectDetection('${d.detection_id}')" class="flex items-center justify-between py-2.5 px-2 hover:bg-[var(--bg-card-alt)] rounded-lg transition cursor-pointer group">
+                        <div class="flex items-center space-x-2.5 min-w-0">
+                            <span class="font-mono text-xs text-[var(--text-muted)]">${shortId}</span>
+                            <span class="text-xs font-semibold text-[var(--text-heading)] capitalize truncate">${escapeHtml(d.class_name)}</span>
+                        </div>
+                        <div class="flex items-center space-x-2">
+                            <span class="text-[10px] font-bold px-2 py-0.5 rounded-full border ${badgeColor}">${d.severity}</span>
+                            <span class="font-mono text-xs text-[var(--text-muted)] font-medium">${Math.round((d.confidence || 0.85) * 100)}%</span>
+                            <i class="fa-solid fa-chevron-right text-[10px] text-[var(--text-muted)] group-hover:text-emerald-600 transition"></i>
+                        </div>
+                    </div>
+                `;
+            });
+
+            container.innerHTML = html;
+        }
+
+        function filterTable() {
+            renderFeed(allDetections);
+        }
+
+        // Filter Map Pins
+        function filterMapPins(tier) {
+            mapPinFilter = tier;
+            const bAll = document.getElementById('map-filter-all');
+            const bT1 = document.getElementById('map-filter-t1');
+            const bT2 = document.getElementById('map-filter-t2');
+
+            [bAll, bT1, bT2].forEach(b => {
+                if (b) b.className = "px-2.5 py-1 text-xs font-medium rounded-lg text-[var(--text-muted)] hover:text-[var(--text-heading)] transition";
+            });
+
+            if (tier === 'all' && bAll) bAll.className = "px-2.5 py-1 text-xs font-semibold rounded-lg bg-emerald-600 text-white transition";
+            if (tier === 'Tier 1' && bT1) bT1.className = "px-2.5 py-1 text-xs font-semibold rounded-lg bg-red-600 text-white transition";
+            if (tier === 'Tier 2' && bT2) bT2.className = "px-2.5 py-1 text-xs font-semibold rounded-lg bg-amber-600 text-white transition";
+
+            renderMapPins(allDetections);
+        }
+
+        function resetMapZoom() {
+            if (map) {
+                map.setView(LAHORE_CENTER, 13, { animate: true });
+                showToast("Map View", "Centered on Lahore Metropolitan Sector.");
+            }
+        }
+
+        // Open Inspection Modal for a Detection
+        function inspectDetection(id) {
+            const item = allDetections.find(d => d.detection_id === id);
+            if (!item) return;
+            selectedDetection = item;
+
+            document.getElementById('modal-title').innerText = `${item.class_name.toUpperCase()} (ID: ${item.detection_id.substring(0,8)})`;
+            document.getElementById('modal-json-id').innerText = item.detection_id;
+            document.getElementById('modal-json-class').innerText = item.class_name;
+            document.getElementById('modal-json-conf').innerText = (item.confidence * 100).toFixed(1) + '%';
+            const lat = item.gps?.latitude || item.latitude || 31.5497;
+            const lon = item.gps?.longitude || item.longitude || 74.3436;
+            document.getElementById('modal-json-gps').innerText = `${Number(lat).toFixed(4)}° N, ${Number(lon).toFixed(4)}° E`;
+            document.getElementById('modal-json-time').innerText = new Date(item.timestamp).toLocaleString();
+            document.getElementById('modal-json-severity').innerText = item.severity;
+
+            const badge = document.getElementById('modal-badge-tier');
+            badge.innerText = item.severity;
+            if (item.severity === 'Tier 1') {
+                badge.className = "px-2.5 py-0.5 rounded-full text-xs font-bold bg-red-100 text-red-700 border border-red-300";
+                document.getElementById('modal-bbox').className = "absolute border-2 border-red-500 bg-red-500/20 rounded pointer-events-none transition-all duration-300";
+                document.getElementById('modal-bbox-label').className = "absolute -top-6 left-0 bg-red-600 text-white font-mono text-[10px] px-1.5 py-0.5 rounded shadow font-bold";
+            } else if (item.severity === 'Tier 2') {
+                badge.className = "px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-100 text-amber-700 border border-amber-300";
+                document.getElementById('modal-bbox').className = "absolute border-2 border-amber-500 bg-amber-500/20 rounded pointer-events-none transition-all duration-300";
+                document.getElementById('modal-bbox-label').className = "absolute -top-6 left-0 bg-amber-600 text-white font-mono text-[10px] px-1.5 py-0.5 rounded shadow font-bold";
+            } else {
+                badge.className = "px-2.5 py-0.5 rounded-full text-xs font-bold bg-sky-100 text-sky-700 border border-sky-300";
+                document.getElementById('modal-bbox').className = "absolute border-2 border-sky-500 bg-sky-500/20 rounded pointer-events-none transition-all duration-300";
+                document.getElementById('modal-bbox-label').className = "absolute -top-6 left-0 bg-sky-600 text-white font-mono text-[10px] px-1.5 py-0.5 rounded shadow font-bold";
+            }
+
+            document.getElementById('modal-bbox-label').innerText = `${item.class_name} ${(item.confidence * 100).toFixed(0)}%`;
+
+            document.getElementById('inspection-modal').classList.remove('hidden');
+            document.getElementById('inspection-modal').classList.add('flex');
+        }
+
+        function focusMapOnSelected() {
+            if (selectedDetection && map) {
+                const lat = selectedDetection.gps?.latitude || selectedDetection.latitude;
+                const lon = selectedDetection.gps?.longitude || selectedDetection.longitude;
+                map.setView([lat, lon], 16, { animate: true });
+                closeModal();
+                showToast("Location Focused", `Centered on ${selectedDetection.class_name} coordinates.`);
+            }
+        }
+
+        function closeModal() {
+            document.getElementById('inspection-modal').classList.add('hidden');
+            document.getElementById('inspection-modal').classList.remove('flex');
+        }
+
+        function openUploadModal() {
+            document.getElementById('upload-modal').classList.remove('hidden');
+            document.getElementById('upload-modal').classList.add('flex');
+        }
+
+        function closeUploadModal() {
+            document.getElementById('upload-modal').classList.add('hidden');
+            document.getElementById('upload-modal').classList.remove('flex');
+        }
+
+        // Simulate Dashcam Feed frame ingestion
+        async function simulateFeedSuccess() {
+            closeUploadModal();
+            showToast("Inference Pipeline", "Simulating dashcam telemetry feed...");
+
+            const sampleClasses = ["pothole", "D40", "transverse_crack", "alligator_crack", "pothole"];
+            const chosen = sampleClasses[Math.floor(Math.random() * sampleClasses.length)];
+            const lat = LAHORE_CENTER[0] + (Math.random() - 0.5) * 0.05;
+            const lng = LAHORE_CENTER[1] + (Math.random() - 0.5) * 0.05;
+
+            const payload = {
+                class_name: chosen,
+                bbox: [90, 120, 260, 290],
+                confidence: parseFloat((0.82 + Math.random() * 0.15).toFixed(4)),
+                gps: { latitude: parseFloat(lat.toFixed(6)), longitude: parseFloat(lng.toFixed(6)) },
+                timestamp: new Date().toISOString()
+            };
+
+            try {
+                const res = await fetch('/api/detections', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const result = await res.json();
+                showToast("Detection Logged", `${chosen.toUpperCase()} ingested into SQLite database!`);
+                fetchDetections();
+            } catch (err) {
+                showToast("Simulation Failed", "Backend API is currently offline.");
+            }
+        }
+
+        // Seed 25 Demo Hazards
+        async function seedDemoHazards() {
+            closeUploadModal();
+            try {
+                const res = await fetch('/api/seed', { method: 'POST' });
+                if (res.ok) {
+                    showToast("Database Seeded", "Inserted 25 road hazard detections in Lahore!");
+                    fetchDetections();
+                }
+            } catch (e) {
+                showToast("Seed Error", "Could not seed data.");
+            }
+        }
+
+        function dispatchQueueItem(id, roadName) {
+            dispatchedItems.add(id);
+            renderPriorityQueue(allDetections);
+            showToast("Crew Dispatched", `Maintenance team assigned to ${roadName}.`);
+        }
+
+        function dispatchRepairTeam() {
+            if (selectedDetection) {
+                dispatchedItems.add(selectedDetection.detection_id);
+                renderPriorityQueue(allDetections);
+            }
+            closeModal();
+            showToast("Work Order Dispatched", "Civil repair crew notified with GPS telemetry & severity tier.");
+        }
+
+        // Tab Switcher with smooth transition
+        function switchTab(tab) {
+            const dashTab = document.getElementById('tab-dashboard');
+            const stretchTab = document.getElementById('tab-stretch');
+            const dashBtn = document.getElementById('tab-btn-dashboard');
+            const stretchBtn = document.getElementById('tab-btn-stretch');
+
+            if (tab === 'dashboard') {
+                dashTab.classList.remove('hidden');
+                stretchTab.classList.add('hidden');
+                dashBtn.className = "cf-btn px-4 py-2 rounded-lg text-xs font-semibold bg-emerald-600 text-white shadow-sm shadow-emerald-600/30";
+                stretchBtn.className = "cf-btn px-4 py-2 rounded-lg text-xs font-medium text-[var(--text-muted)] hover:text-[var(--text-heading)]";
+                if (map) setTimeout(() => map.invalidateSize(), 150);
+            } else {
+                dashTab.classList.add('hidden');
+                stretchTab.classList.remove('hidden');
+                stretchBtn.className = "cf-btn px-4 py-2 rounded-lg text-xs font-semibold bg-emerald-600 text-white shadow-sm shadow-emerald-600/30";
+                dashBtn.className = "cf-btn px-4 py-2 rounded-lg text-xs font-medium text-[var(--text-muted)] hover:text-[var(--text-heading)]";
+                refreshReportSummary();
+            }
+        }
+
+        // Update Class Percentages in Analytics Tab
+        function updateAnalyticsBreakdown(detections) {
+            const total = detections.length;
+            let potholes = 0, cracks = 0, alligator = 0;
+
+            detections.forEach(d => {
+                const name = (d.class_name || '').toLowerCase();
+                if (name.includes('pothole') || name === 'd40') potholes++;
+                else if (name.includes('alligator') || name === 'd20') alligator++;
+                else cracks++;
+            });
+
+            const potPct = total > 0 ? Math.round((potholes / total) * 100) : 58;
+            const crackPct = total > 0 ? Math.round((cracks / total) * 100) : 27;
+            const alligPct = total > 0 ? Math.round((alligator / total) * 100) : 15;
+
+            document.getElementById('breakdown-pothole-pct').innerText = `${potPct}%`;
+            document.getElementById('bar-pothole').style.width = `${potPct}%`;
+            document.getElementById('breakdown-crack-pct').innerText = `${crackPct}%`;
+            document.getElementById('bar-crack').style.width = `${crackPct}%`;
+            document.getElementById('breakdown-alligator-pct').innerText = `${alligPct}%`;
+            document.getElementById('bar-alligator').style.width = `${alligPct}%`;
+        }
+
+        // Refresh Summary narrative
+        async function refreshReportSummary() {
+            const container = document.getElementById('analytics-report-content');
+            try {
+                const res = await fetch('/api/report');
+                const data = await res.json();
+
+                const total = data.total_detections || allDetections.length;
+                const t1 = data.severity_breakdown?.['Tier 1'] || 0;
+                const t2 = data.severity_breakdown?.['Tier 2'] || 0;
+                const t3 = data.severity_breakdown?.['Tier 3'] || 0;
+
+                container.innerHTML = `
+                    <p>
+                        Autonomous mobile surveillance across the <strong>Lahore Municipal Sector</strong> has geolocated and cataloged a total of 
+                        <strong class="text-emerald-700 dark:text-emerald-400 font-mono">${total} road anomalies</strong> 
+                        (mean AI inference confidence: <strong class="font-mono">${((data.average_confidence || 0.88) * 100).toFixed(1)}%</strong>).
+                    </p>
+                    <p>
+                        <strong class="text-red-600 font-semibold">• Tier 1 Emergency (Critical):</strong> <span class="font-mono font-bold text-red-600">${t1} hazards</span> pose immediate risk to tire sidewalls, suspension systems, and vehicular control. Cold-patch asphalt resurfacing is advised within 24 hours.
+                    </p>
+                    <p>
+                        <strong class="text-amber-600 font-semibold">• Tier 2 Scheduled (Moderate):</strong> <span class="font-mono font-bold text-amber-600">${t2} hazards</span> flagged for standard weekly municipal patching cycles.
+                    </p>
+                    <p>
+                        <strong class="text-sky-600 font-semibold">• Tier 3 Surveillance (Minor):</strong> <span class="font-mono font-bold text-sky-600">${t3} fissures</span> cataloged for automated progression monitoring.
+                    </p>
+                    <div class="pt-2 text-[11px] text-[var(--text-muted)] font-mono">
+                        Data Synchronized: ${new Date(data.generated_at || Date.now()).toUTCString()} · SQLite Store: city_fixer.db
+                    </div>
+                `;
+            } catch (err) {
+                console.warn(err);
+            }
+        }
+
+        // Global Theme Toggle (Light Green <-> Dark Patrol)
+        function toggleGlobalTheme() {
+            const html = document.documentElement;
+            const icon = document.getElementById('theme-toggle-icon');
+            if (html.classList.contains('dark')) {
+                html.classList.remove('dark');
+                icon.className = 'fa-solid fa-moon text-emerald-700';
+                showToast("Light Theme", "Switched to clean Light Green theme.");
+            } else {
+                html.classList.add('dark');
+                icon.className = 'fa-solid fa-sun text-amber-400';
+                showToast("Dark Patrol", "Switched to Dark Patrol theme.");
+            }
+        }
+
+        // Toast Helper
+        function showToast(title, desc) {
+            const toast = document.getElementById('toast');
+            document.getElementById('toast-title').innerText = title;
+            document.getElementById('toast-desc').innerText = desc;
+            toast.classList.remove('translate-y-24', 'opacity-0');
+            setTimeout(() => {
+                toast.classList.add('translate-y-24', 'opacity-0');
+            }, 3800);
+        }
+
+        function escapeHtml(text) {
+            if (!text) return '';
+            const map = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' };
+            return String(text).replace(/[&<>"']/g, m => map[m]);
+        }
+    </script>
+</body>
+</html>

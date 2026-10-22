@@ -1,0 +1,31 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments
+venv/
+env/
+ENV/
+.venv/
+
+# YOLO & Model Weights / Datasets
+runs/
+datasets/
+dataset/
+*.pt
+*.tar.gz
+*.zip
+
+# VS Code & IDE files
+.vscode/
+.idea/
+
+# SQLite databases (optional, comment out if you want to include initial db)
+*.db
+backend/*.db
+
+# OS generated files
+.DS_Store
+Thumbs.db
+

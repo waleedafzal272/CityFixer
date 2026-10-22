@@ -1,0 +1,12 @@
+# The City Fixer — Dependencies
+# Install:  pip install -r requirements.txt
+
+ultralytics>=8.2.0
+Flask>=3.0.0
+Flask-Cors>=4.0.0
+opencv-python>=4.9.0
+numpy==1.26.4
+pandas>=2.2.0
+scikit-learn>=1.4.0
+requests>=2.31.0
+reportlab>=4.0.0

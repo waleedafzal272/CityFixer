@@ -1,0 +1,43 @@
+# ============================================================
+# The City Fixer — YOLOv8 Dataset Configuration
+# ============================================================
+# Place this file at the root of your project.
+#
+# Directory structure expected:
+#
+#   ai_ml_workspace/
+#   ├── data.yaml              ← this file
+#   ├── datasets/
+#   │   └── road_damage/
+#   │       ├── train/
+#   │       │   ├── images/    ← training images (.jpg/.png)
+#   │       │   └── labels/    ← YOLO-format .txt annotations
+#   │       └── val/
+#   │           ├── images/    ← validation images
+#   │           └── labels/    ← validation annotations
+#   └── ...
+#
+# Each label .txt file has one line per object:
+#   <class_id> <x_center> <y_center> <width> <height>
+#   All values normalised to [0, 1] relative to image size.
+#
+# Example label line for a pothole:
+#   0 0.45 0.62 0.15 0.10
+# ============================================================
+
+# ── Paths ────────────────────────────────────────────────────
+# Relative to where you run `python train.py` from.
+# Adjust these if your dataset lives elsewhere.
+path: datasets/road_damage       # dataset root directory
+train: train/images              # train images (relative to 'path')
+val: val/images                  # val images   (relative to 'path')
+
+# ── Classes ──────────────────────────────────────────────────
+# Number of classes
+nc: 2
+
+# Class names (index must match label files)
+names:
+  0: pothole     # Potholes, D40-type damage — high severity
+  1: crack       # Longitudinal, transverse, and alligator cracks
+
